@@ -55,6 +55,6 @@ void closeThreads();
 
 struct ThreadGroup* getThreadGroup();
 
-
+pthread_mutex_t* get_PRINT_LOCK();
 
 #endif

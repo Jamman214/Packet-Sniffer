@@ -122,3 +122,7 @@ void initThreads() {
         printf("Init Thread: %d\n", i);
     }
 }
+
+pthread_mutex_t* get_PRINT_LOCK() {
+    return &PRINT_LOCK;
+}

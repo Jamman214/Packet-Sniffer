@@ -77,6 +77,7 @@ void sniff(char *interface, int verbose) {
     *threadGroup->terminate = 1;
     pthread_mutex_unlock(threadGroup->terminate_lock);
     pthread_cond_broadcast(&threadGroup->queue->cond);
+    pthread_mutex_t* PRINT_LOCK = get_PRINT_LOCK();
     int SYNCount = 0;
     int ARPCount = 0;
     int blackListCount[2] = {0,0};
@@ -86,7 +87,9 @@ void sniff(char *interface, int verbose) {
     for (i=0; i<POOLSIZE; i++) {
         data = threadGroup->pool+i;
         pthread_join(data->threadID, NULL);
-        printf("Cleaned thread %d\n", i);
+        pthread_mutex_lock("PRINT_LOCK");
+            printf("Cleaned thread %d\n", i);
+        pthread_mutex_lock("PRINT_LOCK");
         SYNCount += data->SYNCount;
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
