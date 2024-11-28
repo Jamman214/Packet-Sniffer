@@ -1,4 +1,5 @@
 #include "analysis.h"
+#include "dispatch.h"
 
 #include <pcap.h>
 #include <stdlib.h>
@@ -9,19 +10,16 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-//#include <netinet/ethertype.h>
 
 #define TCP 0x06
 #define IP 0x0800
 #define ARP 0x0806
 #define SYN 0x02
 
-
 // void analyse(struct pcap_pkthdr *header, const uint8_t *packet, int verbose) {
 // }
 
-debug = 0;
-int count = 0;
+int debug = 0;
 
 void printIP(const uint8_t* ip) {
     int i;
@@ -33,19 +31,21 @@ void printIP(const uint8_t* ip) {
     }
 }
 
-void violation(const struct ip* IPHeader, char* host) {
-    printf("========================================\n");
-    printf("Blacklisted URL violation detected\n");
-    printf("Source IP address: ");
-    printIP((const uint8_t*)&(IPHeader->ip_src));
-    printf("\nDestination IP address: ");
-    printIP((const uint8_t*)&(IPHeader->ip_dst));
-    printf(" (");
-    printf(host);
-    printf(")\n========================================\n");
+void violation(pthread_mutex_t* PRINT_LOCK, const struct ip* IPHeader, char* host) {
+    pthread_mutex_unlock(PRINT_LOCK);
+        printf("========================================\n");
+        printf("Blacklisted URL violation detected\n");
+        printf("Source IP address: ");
+        printIP((const uint8_t*)&(IPHeader->ip_src));
+        printf("\nDestination IP address: ");
+        printIP((const uint8_t*)&(IPHeader->ip_dst));
+        printf(" (");
+        printf(host);
+        printf(")\n========================================\n");
+    pthread_mutex_unlock(PRINT_LOCK);
 }
 
-void analyseHTTP(const struct ip* IPHeader, const unsigned char* Packet, int packetLength) {
+void analyseHTTP(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
     char* httpString = (char*)malloc(packetLength + sizeof(char));
     httpString[packetLength] = '\0';
     strncpy(httpString, Packet, packetLength);
@@ -70,57 +70,50 @@ void analyseHTTP(const struct ip* IPHeader, const unsigned char* Packet, int pac
     strncpy(host, hostStart, hostLen);
 
     if (strcmp(host, "www.google.co.uk") == 0) {
-        violation(IPHeader, "google");
+        threadData->blackListCount[0] += 1;
+        violation(PRINT_LOCK, IPHeader, "google");
     } else if (strcmp(host, "www.bbc.co.uk") == 0) { 
-        violation(IPHeader, "bbc");
-    }
-
-    if (debug) {
-        printf("========================================\n");
-        printf(host);
-        printf("========================================\n");
-        printf(httpString);
-        printf("========================================\n");
+        threadData->blackListCount[1] += 1;
+        violation(PRINT_LOCK, IPHeader, "bbc");
     }
 
     free(host);
     free(httpString);
 }
 
-
-
-void analyseTCP(const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
+void analyseTCP(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
     const struct tcphdr* Header = (const struct tcphdr*)Packet;
     if (Header->th_flags == SYN) {
-        count ++;
+        threadData->SYNCount += 1;
     }
     const int headerLength = (Header->th_off) * 4;
     if (ntohs(Header->th_dport) == 80) {
-        analyseHTTP(IPHeader, (Packet + headerLength), packetLength-headerLength);
+        analyseHTTP(PRINT_LOCK, threadData, IPHeader, (const char*)(Packet + headerLength), packetLength-headerLength);
     }
 }
 
-void analyseIPv4(const uint8_t *Packet, int packetLength) {
+void analyseIPv4(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const uint8_t *Packet, int packetLength) {
     const struct ip* Header = (const struct ip*)Packet;
     switch (Header->ip_p) {
         case TCP:
-            analyseTCP(Header, Packet + 4 * (Header->ip_hl), packetLength - 4 * (Header->ip_hl));
+            analyseTCP(PRINT_LOCK, threadData, Header, Packet + 4 * (Header->ip_hl), packetLength - 4 * (Header->ip_hl));
             break;
     }
 }
 
-void analyseARP() {
-    if (debug) printf("Detected ARP\n");
+void analyseARP(struct ThreadData* threadData) {
+    threadData->ARPCount += 1;
+    return;
 }
 
-void analysePhysical(struct pcap_pkthdr *PHeader, const uint8_t *Packet, int verbose) {
-    const struct ether_header* Header = (const struct ether_header*)Packet;
+void analyse(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct pcap_pkthdr* PHeader, const uint8_t* Packet) {
+    struct ether_header* Header = (struct ether_header*)Packet;
     switch (ntohs(Header->ether_type)) {
         case IP:
-            analyseIPv4(Packet + 14, PHeader->len - 14);
+            analyseIPv4(PRINT_LOCK, threadData, Packet + 14, PHeader->len - 14);
             break;
         case ARP:
-            analyseARP();
+            analyseARP(threadData);
             break;
     }
 }
