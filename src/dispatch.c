@@ -88,7 +88,7 @@ void* collect(void* arg) {
     struct ThreadArgs* threadArgs = NULL;
     struct WorkQueueElement* element = NULL;
 
-    while (!terminated) {
+    while (1) {
         pthread_mutex_lock(&threadData->shared->queue->lock);
             // Hold while the queue is empty
             while (threadData->shared->queue->head == NULL) {
@@ -100,6 +100,7 @@ void* collect(void* arg) {
                         pthread_mutex_unlock(&threadData->shared->terminate_lock);
                         pthread_mutex_unlock(&threadData->shared->queue->lock);
                         pthread_cond_broadcast(&threadData->shared->queue->cond);
+                        free(threadData);
                         return NULL;
                     }
                 pthread_mutex_unlock(&threadData->shared->terminate_lock);
@@ -116,7 +117,6 @@ void* collect(void* arg) {
         free(element);
         freeThreadArgs(threadArgs);
     }
-    return NULL;
 }
 
 
@@ -174,7 +174,6 @@ void addIPv4(struct IPv4Set* set, uint32_t newAddress) {
     uint32_t hash = hashIPv4(&newAddress);
     pthread_mutex_lock(&set->lock);
     uint32_t* address = set->contents + (hash % set->cap);
-    int i = 0;
     while (*address != 0) {
         hash = hashIPv4(&hash);
         address = set->contents + (hash % set->cap);
@@ -198,6 +197,7 @@ void addIPv4(struct IPv4Set* set, uint32_t newAddress) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct PoolData* initPool(int poolSize) {
+    printf("Reached");
     struct PoolData* pool = (struct PoolData*)malloc(sizeof(struct PoolData));
     struct IndividualData* threads = (struct IndividualData*)calloc(poolSize, sizeof(struct IndividualData));
     struct SharedData* shared = (struct SharedData*)malloc(sizeof(struct SharedData));
@@ -205,17 +205,19 @@ struct PoolData* initPool(int poolSize) {
     shared->set = initIPv4Set();
     pthread_mutex_init(&shared->terminate_lock, NULL);
     shared->terminate = 0;
-    pthread_mutex_init(&shared->print_lock, NULL);
+    pthread_mutex_init(&shared->print_lock, NULL); 
 
     int i;
     for (i=0; i<POOLSIZE; i++) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
         threadData->individual = threads+i;
         threadData->shared = shared;
-        pthread_create(threads+i, NULL, collect, (void*)threadData);
+        pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);
         printf("Init Thread: %d\n", i);
     }
 
+    pool->threads = threads;
+    pool->shared = shared;
     return pool;
 }
 

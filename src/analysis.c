@@ -32,7 +32,7 @@ void printIP(const uint8_t* ip) {
 }
 
 void violation(struct SharedData* shared, const struct ip* IPHeader, char* host) {
-    pthread_mutex_unlock(&shared->print_lock);
+    pthread_mutex_lock(&shared->print_lock);
         printf("========================================\n");
         printf("Blacklisted URL violation detected\n");
         printf("Source IP address: ");

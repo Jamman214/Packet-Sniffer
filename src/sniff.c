@@ -57,7 +57,7 @@ void sniff(char *interface, int verbose) {
         pthread_join(data->threadID, NULL);
         pthread_mutex_lock(&threadPool->shared->print_lock);
             printf("Cleaned thread %d\n", i);
-        pthread_mutex_lock(&threadPool->shared->print_lock);
+        pthread_mutex_unlock(&threadPool->shared->print_lock);
         SYNCount += data->SYNCount;
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
