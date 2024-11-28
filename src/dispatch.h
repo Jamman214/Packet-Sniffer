@@ -4,8 +4,6 @@
 #include <pcap.h>
 #include <pthread.h>
 
-#define POOLSIZE 4
-
 struct WorkQueue {
     struct WorkQueueElement* head;
     struct WorkQueueElement* tail;

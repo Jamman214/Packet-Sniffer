@@ -82,9 +82,7 @@ void freeThreadArgs(struct ThreadArgs* threadArgs) {
 }
 
 void* collect(void* arg) {
-    int terminated = 0;
     struct ThreadData* threadData = (struct ThreadData*)arg;
-
     struct ThreadArgs* threadArgs = NULL;
     struct WorkQueueElement* element = NULL;
 
@@ -119,12 +117,11 @@ void* collect(void* arg) {
     }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Set
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct IPv4Set* initIPv4Set_(int capacity) {
+struct IPv4Set* initIPv4Set(int capacity) {
     uint32_t* contents = (uint32_t*)calloc(capacity, 4);
     struct IPv4Set* set = (struct IPv4Set*)malloc(sizeof(struct IPv4Set));
     set->size = 0;
@@ -132,10 +129,6 @@ struct IPv4Set* initIPv4Set_(int capacity) {
     pthread_mutex_init(&set->lock, NULL);
     set->contents = contents;
     return set;
-}
-
-struct IPv4Set* initIPv4Set() {
-    return initIPv4Set_(4);
 }
 
 void freeIpv4Set(struct IPv4Set* set) {
@@ -148,67 +141,70 @@ uint32_t hashIPv4(uint32_t* IPv4) {
     uint32_t hash = 0x811c9dc5;
     int i;
     for (i=0; i<4; i++) {
-        hash ^= *((uint8_t*)IPv4+i) && 0xFF;
+        hash ^= *((uint8_t*)IPv4 + i);
         hash *= 0x01000193;
     }
     return hash;
 }
 
-void addIPv4(struct IPv4Set* set, uint32_t newAddress);
+void addIPv4_(struct IPv4Set* set, uint32_t newAddress);
 
 void rehashSet(struct IPv4Set* set) {
-    set->cap *= 2;
     uint32_t* oldContents = set->contents;
-    set->contents = (uint32_t*)malloc(set->cap * 4);
+    set->cap *= 2;
+    set->contents = (uint32_t*)calloc(set->cap, 4);
     set->size = 0;
     int i;
     for (i=0; i<set->cap/2; i++) {
         if (*(oldContents+i) != 0) {
-            addIPv4(set, *(oldContents+i));
+            addIPv4_(set, *(oldContents+i));
         }
     }
-    free(set->contents);
+    free(oldContents);
+}
+
+void addIPv4_(struct IPv4Set* set, uint32_t newAddress) {
+    uint32_t hash = hashIPv4(&newAddress);
+    uint32_t* ptr = set->contents + (hash % set->cap);
+    while (*ptr != 0) {
+        if (*ptr == newAddress) {
+            return;
+        }
+        hash = hashIPv4(&hash);
+        ptr = set->contents + (hash % set->cap);
+    }
+    // If more than half of set filled, increase set size
+    if (set->size+1 > set->cap/2) {
+        rehashSet(set);
+        addIPv4_(set, newAddress);
+        return;
+    }
+    *ptr = newAddress;
+    set->size += 1;
 }
 
 void addIPv4(struct IPv4Set* set, uint32_t newAddress) {
-    uint32_t hash = hashIPv4(&newAddress);
     pthread_mutex_lock(&set->lock);
-    uint32_t* address = set->contents + (hash % set->cap);
-    while (*address != 0) {
-        hash = hashIPv4(&hash);
-        address = set->contents + (hash % set->cap);
-    }
-    if (*address == newAddress) {
-        return;
-    }
-    if (set->cap+1 > set->cap/2) {
-        rehashSet(set);
-        addIPv4(set, newAddress);
-    }
-    *address = newAddress;
-    set->size += 1;
+    addIPv4_(set, newAddress);
     pthread_mutex_unlock(&set->lock);
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Thread Pool
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct PoolData* initPool(int poolSize) {
-    printf("Reached");
     struct PoolData* pool = (struct PoolData*)malloc(sizeof(struct PoolData));
     struct IndividualData* threads = (struct IndividualData*)calloc(poolSize, sizeof(struct IndividualData));
     struct SharedData* shared = (struct SharedData*)malloc(sizeof(struct SharedData));
     shared->queue = initWorkQueue();
-    shared->set = initIPv4Set();
+    shared->set = initIPv4Set(4);
     pthread_mutex_init(&shared->terminate_lock, NULL);
     shared->terminate = 0;
     pthread_mutex_init(&shared->print_lock, NULL); 
 
     int i;
-    for (i=0; i<POOLSIZE; i++) {
+    for (i=0; i<poolSize; i++) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
         threadData->individual = threads+i;
         threadData->shared = shared;
