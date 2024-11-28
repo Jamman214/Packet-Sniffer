@@ -85,6 +85,7 @@ void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const 
     const struct tcphdr* Header = (const struct tcphdr*)Packet;
     if (Header->th_flags == SYN) {
         threadData->individual->SYNCount += 1;
+        addIPv4(threadData->shared->set, *((uint32_t*)&(IPHeader->ip_src)));
     }
     const int headerLength = (Header->th_off) * 4;
     if (ntohs(Header->th_dport) == 80) {
