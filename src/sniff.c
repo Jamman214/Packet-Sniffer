@@ -8,7 +8,6 @@
 #include "dispatch.h"
 
 pcap_t* pcap_handle;
-struct ThreadGroup* threadGroup;
 
 void breakCapture(int sig) {
     if (pcap_handle != NULL) {
@@ -33,70 +32,45 @@ void sniff(char *interface, int verbose) {
         printf("SUCCESS! Opened %s for capture\n", interface);
     }
 
+    // Initialise threads, and start packet capture
+    int poolSize = 10;
+    struct PoolData* threadPool = initPool(poolSize);
+    pcap_loop(pcap_handle, -1, dispatch, (u_char*)threadPool->shared->queue);
 
-    // struct pcap_pkthdr header; // Packet header structure
-    // const unsigned char *packet; // Rest of the packet data
-
-    // Capture packet one packet everytime the loop runs using pcap_next(). This is inefficient.
-    // A more efficient way to capture packets is to use use pcap_loop() instead of pcap_next().
-    // See the man pages of both pcap_loop() and pcap_next().
-
-    // while (1) {
-    // Capture a  packet
-    // packet = pcap_next(pcap_handle, &header);
-    // if (packet == NULL) {
-    //     // pcap_next can return null if no packet is seen within a timeout
-    //     if (verbose) {
-    //         printf("No packet received. %s\n", pcap_geterr(pcap_handle));
-    //     }
-    // } else {
-    //     // If verbose is set to 1, dump raw packet to terminal
-    //     if (verbose) {
-    //         dump(packet, header.len);
-    //     }
-    //     // Dispatch packet for processing
-    //     dispatch(&header, packet, verbose);
-    // }
-
-
-
-    // if (terminated) {
-    //   if (pcap_handle != NULL) {
-    //       pcap_close(pcap_handle);
-    //   }
-    //   exit(0);
-    // }
-    // }
-    // pcap_loop(pcap_handle, -1, dispatch, (u_char*)&verbose);
-
-    threadGroup = getThreadGroup();
-    initThreads();
-    pcap_loop(pcap_handle, -1, dispatch, NULL);
+    // Release handle
     pcap_close(pcap_handle);
-    pthread_mutex_lock(threadGroup->terminate_lock);
-    *threadGroup->terminate = 1;
-    pthread_mutex_unlock(threadGroup->terminate_lock);
-    pthread_cond_broadcast(&threadGroup->queue->cond);
-    pthread_mutex_t* PRINT_LOCK = get_PRINT_LOCK();
+
+    // Tell threads to terminate
+    pthread_mutex_lock(&threadPool->shared->terminate_lock);
+    threadPool->shared->terminate = 1;
+    pthread_mutex_unlock(&threadPool->shared->terminate_lock);
+    pthread_cond_broadcast(&threadPool->shared->queue->cond);
+
+    // Collect data from terminated threads
     int SYNCount = 0;
     int ARPCount = 0;
     int blackListCount[2] = {0,0};
     printf("\n");
-    struct ThreadData* data;
+    struct IndividualData* data = threadPool->threads;
     int i;
     for (i=0; i<POOLSIZE; i++) {
-        data = threadGroup->pool+i;
         pthread_join(data->threadID, NULL);
-        pthread_mutex_lock("PRINT_LOCK");
+        pthread_mutex_lock(&threadPool->shared->print_lock);
             printf("Cleaned thread %d\n", i);
-        pthread_mutex_lock("PRINT_LOCK");
+        pthread_mutex_lock(&threadPool->shared->print_lock);
         SYNCount += data->SYNCount;
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
         blackListCount[1] += data->blackListCount[1];
+        data += 1;
     }
-    free(threadGroup);
-    printf("%d SYN packets detected from UNKNOWN different IPs (syn attack)\n", SYNCount);
+    int uniqueSYNCount = threadPool->shared->set->size;
+
+    // Release all memory
+    freePoolData(threadPool);
+
+    // Output results
+    printf("%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, uniqueSYNCount);
     printf("%d ARP responses (cache poisoning)\n", ARPCount);
     printf("%d URL Blacklist violations (%d google and %d bbc)\n", blackListCount[0]+blackListCount[1], blackListCount[0], blackListCount[1]);
     exit(0);

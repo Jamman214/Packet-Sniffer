@@ -31,8 +31,8 @@ void printIP(const uint8_t* ip) {
     }
 }
 
-void violation(pthread_mutex_t* PRINT_LOCK, const struct ip* IPHeader, char* host) {
-    pthread_mutex_unlock(PRINT_LOCK);
+void violation(struct SharedData* shared, const struct ip* IPHeader, char* host) {
+    pthread_mutex_unlock(&shared->print_lock);
         printf("========================================\n");
         printf("Blacklisted URL violation detected\n");
         printf("Source IP address: ");
@@ -42,10 +42,10 @@ void violation(pthread_mutex_t* PRINT_LOCK, const struct ip* IPHeader, char* hos
         printf(" (");
         printf(host);
         printf(")\n========================================\n");
-    pthread_mutex_unlock(PRINT_LOCK);
+    pthread_mutex_unlock(&shared->print_lock);
 }
 
-void analyseHTTP(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
+void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
     char* httpString = (char*)malloc(packetLength + sizeof(char));
     httpString[packetLength] = '\0';
     strncpy(httpString, Packet, packetLength);
@@ -70,50 +70,50 @@ void analyseHTTP(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, con
     strncpy(host, hostStart, hostLen);
 
     if (strcmp(host, "www.google.co.uk") == 0) {
-        threadData->blackListCount[0] += 1;
-        violation(PRINT_LOCK, IPHeader, "google");
+        threadData->individual->blackListCount[0] += 1;
+        violation(threadData->shared, IPHeader, "google");
     } else if (strcmp(host, "www.bbc.co.uk") == 0) { 
-        threadData->blackListCount[1] += 1;
-        violation(PRINT_LOCK, IPHeader, "bbc");
+        threadData->individual->blackListCount[1] += 1;
+        violation(threadData->shared, IPHeader, "bbc");
     }
 
     free(host);
     free(httpString);
 }
 
-void analyseTCP(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
+void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
     const struct tcphdr* Header = (const struct tcphdr*)Packet;
     if (Header->th_flags == SYN) {
-        threadData->SYNCount += 1;
+        threadData->individual->SYNCount += 1;
     }
     const int headerLength = (Header->th_off) * 4;
     if (ntohs(Header->th_dport) == 80) {
-        analyseHTTP(PRINT_LOCK, threadData, IPHeader, (const char*)(Packet + headerLength), packetLength-headerLength);
+        analyseHTTP(threadData, IPHeader, (const char*)(Packet + headerLength), packetLength-headerLength);
     }
 }
 
-void analyseIPv4(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const uint8_t *Packet, int packetLength) {
+void analyseIPv4(struct ThreadData* threadData, const uint8_t *Packet, int packetLength) {
     const struct ip* Header = (const struct ip*)Packet;
     switch (Header->ip_p) {
         case TCP:
-            analyseTCP(PRINT_LOCK, threadData, Header, Packet + 4 * (Header->ip_hl), packetLength - 4 * (Header->ip_hl));
+            analyseTCP(threadData, Header, Packet + 4 * (Header->ip_hl), packetLength - 4 * (Header->ip_hl));
             break;
     }
 }
 
-void analyseARP(struct ThreadData* threadData) {
-    threadData->ARPCount += 1;
+void analyseARP(struct IndividualData* individual) {
+    individual->ARPCount += 1;
     return;
 }
 
-void analyse(pthread_mutex_t* PRINT_LOCK, struct ThreadData* threadData, const struct pcap_pkthdr* PHeader, const uint8_t* Packet) {
+void analyse(struct ThreadData* threadData, const struct pcap_pkthdr* PHeader, const uint8_t* Packet) {
     struct ether_header* Header = (struct ether_header*)Packet;
     switch (ntohs(Header->ether_type)) {
         case IP:
-            analyseIPv4(PRINT_LOCK, threadData, Packet + 14, PHeader->len - 14);
+            analyseIPv4(threadData, Packet + 14, PHeader->len - 14);
             break;
         case ARP:
-            analyseARP(threadData);
+            analyseARP(threadData->individual);
             break;
     }
 }

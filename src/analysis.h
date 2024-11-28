@@ -4,8 +4,7 @@
 #include <pcap.h>
 #include "dispatch.h"
 
-void analyse(pthread_mutex_t* PRINT_LOCK, 
-             struct ThreadData* threadData, 
+void analyse(struct ThreadData* threadData, 
              const struct pcap_pkthdr* header,
              const uint8_t* packet);
 
