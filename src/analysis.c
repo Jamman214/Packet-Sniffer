@@ -10,16 +10,10 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-
-#define TCP 0x06
-#define IP 0x0800
-#define ARP 0x0806
-#define SYN 0x02
+#include <netinet/in.h>
 
 // void analyse(struct pcap_pkthdr *header, const uint8_t *packet, int verbose) {
 // }
-
-int debug = 0;
 
 void printIP(const uint8_t* ip) {
     int i;
@@ -82,39 +76,59 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
 }
 
 void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
+    int hs = sizeof(struct tcphdr);
+    if (packetLength < hs) {
+        return;
+    }
     const struct tcphdr* Header = (const struct tcphdr*)Packet;
-    if (Header->th_flags == SYN) {
+    hs = 4 * Header->th_off;
+    if (Header->th_flags == TH_SYN) {
         threadData->individual->SYNCount += 1;
         addIPv4(threadData->shared->set, *((uint32_t*)&(IPHeader->ip_src)));
     }
-    const int headerLength = (Header->th_off) * 4;
     if (ntohs(Header->th_dport) == 80) {
-        analyseHTTP(threadData, IPHeader, (const char*)(Packet + headerLength), packetLength-headerLength);
+        analyseHTTP(threadData, IPHeader, (const char*)(Packet + hs), packetLength - hs);
     }
 }
 
 void analyseIPv4(struct ThreadData* threadData, const uint8_t *Packet, int packetLength) {
+    int hs = sizeof(struct ip);
+    if (packetLength < hs) {
+        return;
+    }
     const struct ip* Header = (const struct ip*)Packet;
+    hs = 4 * Header->ip_hl;
     switch (Header->ip_p) {
-        case TCP:
-            analyseTCP(threadData, Header, Packet + 4 * (Header->ip_hl), packetLength - 4 * (Header->ip_hl));
+        case IPPROTO_TCP:
+            analyseTCP(threadData, Header, Packet + hs, packetLength - hs);
             break;
     }
 }
 
-void analyseARP(struct IndividualData* individual) {
-    individual->ARPCount += 1;
+void analyseARP(struct IndividualData* individual, const uint8_t *Packet, int packetLength) {
+    int hs = sizeof(struct arphdr);
+    if (packetLength < hs) {
+        return;
+    }
+    const struct arphdr* Header = (const struct arphdr*)Packet;
+    if (ntohs(Header->ar_op) == ARPOP_REPLY) {
+        individual->ARPCount += 1;
+    }
     return;
 }
 
 void analyse(struct ThreadData* threadData, const struct pcap_pkthdr* PHeader, const uint8_t* Packet) {
+    int hs = sizeof(struct ether_header);
+    if (PHeader->caplen < hs) {
+        return;
+    }
     struct ether_header* Header = (struct ether_header*)Packet;
     switch (ntohs(Header->ether_type)) {
-        case IP:
-            analyseIPv4(threadData, Packet + 14, PHeader->len - 14);
+        case ETHERTYPE_IP:
+            analyseIPv4(threadData, Packet + hs, PHeader->caplen - hs);
             break;
-        case ARP:
-            analyseARP(threadData->individual);
+        case ETHERTYPE_ARP:
+            analyseARP(threadData->individual, Packet + hs, PHeader->caplen - hs);
             break;
     }
 }
