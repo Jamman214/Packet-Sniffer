@@ -1,11 +1,12 @@
 #include "sniff.h"
+#include "dispatch.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap.h>
 #include <netinet/if_ether.h>
 #include <signal.h>
-#include "dispatch.h"
 
 pcap_t* pcap_handle;
 

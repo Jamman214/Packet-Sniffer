@@ -1,6 +1,9 @@
 #ifndef CS241_DISPATCH_H
 #define CS241_DISPATCH_H
 
+#include "set_IPv4.h"
+#include "stdint.h"
+
 #include <pcap.h>
 #include <pthread.h>
 
@@ -19,13 +22,6 @@ struct ThreadArgs {
 struct WorkQueueElement {
     struct ThreadArgs* threadArgs;
     struct WorkQueueElement* next;
-};
-
-struct IPv4Set {
-    int size;
-    int cap;
-    pthread_mutex_t lock;
-    uint32_t* contents;
 };
 
 struct IndividualData {

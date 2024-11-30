@@ -1,13 +1,7 @@
 #include "dispatch.h"
-
-#include <pcap.h>
-
 #include "analysis.h"
-#include "stdint.h"
 
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <string.h>
 
 // void dispatch(struct pcap_pkthdr *header,
@@ -118,76 +112,10 @@ void* collect(void* arg) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Set
+// IPv4 HashSet
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct IPv4Set* initIPv4Set(int capacity) {
-    uint32_t* contents = (uint32_t*)calloc(capacity, 4);
-    struct IPv4Set* set = (struct IPv4Set*)malloc(sizeof(struct IPv4Set));
-    set->size = 0;
-    set->cap = capacity;
-    pthread_mutex_init(&set->lock, NULL);
-    set->contents = contents;
-    return set;
-}
 
-void freeIpv4Set(struct IPv4Set* set) {
-    free(set->contents);
-    free(set);
-}
-
-// FNV-1a hash
-uint32_t hashIPv4(uint32_t* IPv4) {
-    uint32_t hash = 0x811c9dc5;
-    int i;
-    for (i=0; i<4; i++) {
-        hash ^= *((uint8_t*)IPv4 + i);
-        hash *= 0x01000193;
-    }
-    return hash;
-}
-
-void addIPv4_(struct IPv4Set* set, uint32_t newAddress);
-
-void rehashSet(struct IPv4Set* set) {
-    uint32_t* oldContents = set->contents;
-    set->cap *= 2;
-    set->contents = (uint32_t*)calloc(set->cap, 4);
-    set->size = 0;
-    int i;
-    for (i=0; i<set->cap/2; i++) {
-        if (*(oldContents+i) != 0) {
-            addIPv4_(set, *(oldContents+i));
-        }
-    }
-    free(oldContents);
-}
-
-void addIPv4_(struct IPv4Set* set, uint32_t newAddress) {
-    uint32_t hash = hashIPv4(&newAddress);
-    uint32_t* ptr = set->contents + (hash % set->cap);
-    while (*ptr != 0) {
-        if (*ptr == newAddress) {
-            return;
-        }
-        hash = hashIPv4(&hash);
-        ptr = set->contents + (hash % set->cap);
-    }
-    // If more than half of set filled, increase set size
-    if (set->size+1 > set->cap/2) {
-        rehashSet(set);
-        addIPv4_(set, newAddress);
-        return;
-    }
-    *ptr = newAddress;
-    set->size += 1;
-}
-
-void addIPv4(struct IPv4Set* set, uint32_t newAddress) {
-    pthread_mutex_lock(&set->lock);
-    addIPv4_(set, newAddress);
-    pthread_mutex_unlock(&set->lock);
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Thread Pool

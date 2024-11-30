@@ -1,16 +1,14 @@
 #include "analysis.h"
-#include "dispatch.h"
 
-#include <pcap.h>
 #include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h>
-#include <stdint.h>
 
-#include <netinet/if_ether.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
+#include <arpa/inet.h> // ntohs
+#include <net/ethernet.h> // ETHERTYPE_IP, ETHERTYPE_ARP
+#include <net/if_arp.h> // arphdr, ARPOP_REPLY
+#include <netinet/ip.h> // ip
+#include <netinet/tcp.h> // tcphdr, TH_SYN
+#include <netinet/in.h> // IPPROTO_TCP
 
 // void analyse(struct pcap_pkthdr *header, const uint8_t *packet, int verbose) {
 // }
