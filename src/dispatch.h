@@ -14,13 +14,13 @@ struct WorkQueue {
     pthread_cond_t cond;
 };
 
-struct ThreadArgs {
+struct PacketData {
     struct pcap_pkthdr *header;
     u_char *packet;
 };
 
 struct WorkQueueElement {
-    struct ThreadArgs* threadArgs;
+    struct PacketData* packetData;
     struct WorkQueueElement* next;
 };
 
