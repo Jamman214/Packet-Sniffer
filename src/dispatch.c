@@ -82,8 +82,6 @@ void* collect(void* arg) {
             
             // Wait till queue contains an element, awake when signalled
             while (threadData->shared->queue->head == NULL) {
-                pthread_cond_wait(&threadData->shared->queue->cond, &threadData->shared->queue->lock);
-
                 // If the program terminates, release locks and signal so another thread can continue
                 pthread_mutex_lock(&threadData->shared->terminate_lock);
                     if (threadData->shared->terminate) {
@@ -94,6 +92,8 @@ void* collect(void* arg) {
                         return NULL;
                     }
                 pthread_mutex_unlock(&threadData->shared->terminate_lock);
+
+                pthread_cond_wait(&threadData->shared->queue->cond, &threadData->shared->queue->lock);
             }
             
             element = threadData->shared->queue->head;
