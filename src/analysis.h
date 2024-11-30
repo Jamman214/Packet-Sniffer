@@ -1,8 +1,10 @@
 #ifndef CS241_ANALYSIS_H
 #define CS241_ANALYSIS_H
 
-#include <pcap.h>
 #include "dispatch.h"
+
+#include <stdint.h>
+#include <pcap.h>
 
 void analyse(struct ThreadData* threadData, 
              const struct pcap_pkthdr* header,

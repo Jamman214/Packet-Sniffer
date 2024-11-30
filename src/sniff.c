@@ -1,11 +1,12 @@
 #include "sniff.h"
+#include "dispatch.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap.h>
 #include <netinet/if_ether.h>
 #include <signal.h>
-#include "dispatch.h"
 
 pcap_t* pcap_handle;
 
@@ -43,8 +44,8 @@ void sniff(char *interface, int verbose) {
     // Tell threads to terminate
     pthread_mutex_lock(&threadPool->shared->terminate_lock);
     threadPool->shared->terminate = 1;
+    pthread_cond_signal(&threadPool->shared->queue->cond);
     pthread_mutex_unlock(&threadPool->shared->terminate_lock);
-    pthread_cond_broadcast(&threadPool->shared->queue->cond);
 
     // Collect data from terminated threads
     int SYNCount = 0;
