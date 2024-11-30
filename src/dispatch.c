@@ -53,9 +53,9 @@ void enqueue(struct WorkQueue* queue, struct ThreadArgs* threadArgs) {
         } else {
             queue->tail->next = element;
         }
+        queue->tail = element;
     pthread_mutex_unlock(&queue->lock);
     pthread_cond_signal(&queue->cond);
-    queue->tail = element;
 }
 
 void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* packet) {
@@ -96,8 +96,8 @@ void* collect(void* arg) {
                 pthread_mutex_lock(&threadData->shared->terminate_lock);
                     if (threadData->shared->terminate) {
                         pthread_mutex_unlock(&threadData->shared->terminate_lock);
+                        pthread_cond_signal(&threadData->shared->queue->cond);
                         pthread_mutex_unlock(&threadData->shared->queue->lock);
-                        pthread_cond_broadcast(&threadData->shared->queue->cond);
                         free(threadData);
                         return NULL;
                     }
@@ -106,8 +106,8 @@ void* collect(void* arg) {
             
             element = threadData->shared->queue->head;
             threadData->shared->queue->head = threadData->shared->queue->head->next;
+        pthread_cond_signal(&threadData->shared->queue->cond);
         pthread_mutex_unlock(&threadData->shared->queue->lock);
-        pthread_cond_broadcast(&threadData->shared->queue->cond);
 
         threadArgs = element->threadArgs;
         analyse(threadData, threadArgs->header, threadArgs->packet);
