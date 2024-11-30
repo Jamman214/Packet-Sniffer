@@ -10,9 +10,6 @@
 #include <netinet/tcp.h> // tcphdr, TH_SYN
 #include <netinet/in.h> // IPPROTO_TCP
 
-// void analyse(struct pcap_pkthdr *header, const uint8_t *packet, int verbose) {
-// }
-
 void printIP(const uint8_t* ip) {
     int i;
     for (i=0; i<4; i++) {
