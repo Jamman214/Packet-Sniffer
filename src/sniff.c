@@ -44,8 +44,8 @@ void sniff(char *interface, int verbose) {
     // Tell threads to terminate
     pthread_mutex_lock(&threadPool->shared->terminate_lock);
     threadPool->shared->terminate = 1;
+    pthread_cond_signal(&threadPool->shared->queue->cond);
     pthread_mutex_unlock(&threadPool->shared->terminate_lock);
-    pthread_cond_broadcast(&threadPool->shared->queue->cond);
 
     // Collect data from terminated threads
     int SYNCount = 0;
