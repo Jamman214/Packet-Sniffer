@@ -8,7 +8,7 @@
 // Struct initialisers
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+// Allocates memory to and creates the work queue
 struct WorkQueue* initWorkQueue () {
     struct WorkQueue* queue = (struct WorkQueue*)calloc(1, sizeof(struct WorkQueue));
     pthread_mutex_init(&queue->lock, NULL);
@@ -16,6 +16,7 @@ struct WorkQueue* initWorkQueue () {
     return queue;
 }
 
+// Allocates memory to and creates an element for the work queue
 struct WorkQueueElement* initWorkQueueElement(struct ThreadArgs* threadArgs) {
     struct WorkQueueElement* element = (struct WorkQueueElement*)malloc(sizeof(struct WorkQueueElement));
     element->threadArgs = threadArgs;
@@ -28,7 +29,7 @@ struct WorkQueueElement* initWorkQueueElement(struct ThreadArgs* threadArgs) {
 // Work dispatcher
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+// Adds an element to the work queue (Thread safe)
 void enqueue(struct WorkQueue* queue, struct ThreadArgs* threadArgs) {
     struct WorkQueueElement* element = initWorkQueueElement(threadArgs);
     pthread_mutex_lock(&queue->lock);
@@ -42,11 +43,13 @@ void enqueue(struct WorkQueue* queue, struct ThreadArgs* threadArgs) {
     pthread_cond_signal(&queue->cond);
 }
 
+// Copies the header and packet, since their memory will not be accessible after this function ends
+// Enqueues packet data
 void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* packet) {
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
-    u_char* packetCopy = (u_char*)malloc(header->len);
-    memcpy((void*)packetCopy, (void*)packet, header->len);
+    u_char* packetCopy = (u_char*)malloc(header->caplen);
+    memcpy((void*)packetCopy, (void*)packet, header->caplen);
     struct ThreadArgs* threadArgs = (struct ThreadArgs*)malloc(sizeof(struct ThreadArgs));
     threadArgs->header = headerCopy;
     threadArgs->packet = packetCopy;
@@ -59,24 +62,29 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
 // Threads
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Releases memory for a packet 
 void freeThreadArgs(struct ThreadArgs* threadArgs) {
     free(threadArgs->header);
     free(threadArgs->packet);
     free(threadArgs);
 }
 
+// Repeatedly removes an element from the queue if one exists, or waits until signalled if queue is empty
+// Terminates when terminate flag is set
 void* collect(void* arg) {
     struct ThreadData* threadData = (struct ThreadData*)arg;
     struct ThreadArgs* threadArgs = NULL;
     struct WorkQueueElement* element = NULL;
 
     while (1) {
+        // Dequeue element from work queue
         pthread_mutex_lock(&threadData->shared->queue->lock);
-            // Hold while the queue is empty
+            
+            // Wait till queue contains an element, awake when signalled
             while (threadData->shared->queue->head == NULL) {
                 pthread_cond_wait(&threadData->shared->queue->cond, &threadData->shared->queue->lock);
 
-                // If the program terminates, release locks and broadcast so another thread can continue
+                // If the program terminates, release locks and signal so another thread can continue
                 pthread_mutex_lock(&threadData->shared->terminate_lock);
                     if (threadData->shared->terminate) {
                         pthread_mutex_unlock(&threadData->shared->terminate_lock);
@@ -93,9 +101,11 @@ void* collect(void* arg) {
         pthread_cond_signal(&threadData->shared->queue->cond);
         pthread_mutex_unlock(&threadData->shared->queue->lock);
 
+        // Analyse dequeued packet
         threadArgs = element->threadArgs;
         analyse(threadData, threadArgs->header, threadArgs->packet);
 
+        // Release memory
         free(element);
         freeThreadArgs(threadArgs);
     }
@@ -105,6 +115,9 @@ void* collect(void* arg) {
 // Thread Pool
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Allocates memory for pool structures
+// Initialises structures
+// Creates threads and passes necessary data to them
 struct PoolData* initPool(int poolSize) {
     struct PoolData* pool = (struct PoolData*)malloc(sizeof(struct PoolData));
     struct IndividualData* threads = (struct IndividualData*)calloc(poolSize, sizeof(struct IndividualData));
@@ -129,6 +142,7 @@ struct PoolData* initPool(int poolSize) {
     return pool;
 }
 
+// Releases memory for thread pool
 void freePoolData(struct PoolData* pool) {
     free(pool->threads);
     free(pool->shared->queue);

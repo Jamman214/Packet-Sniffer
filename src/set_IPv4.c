@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+// Initialises a set with the given capacity
 struct IPv4Set* initIPv4Set(int capacity) {
     uint32_t* contents = (uint32_t*)calloc(capacity, 4);
     struct IPv4Set* set = (struct IPv4Set*)malloc(sizeof(struct IPv4Set));
@@ -12,6 +13,7 @@ struct IPv4Set* initIPv4Set(int capacity) {
     return set;
 }
 
+// Releases memory used by sets
 void freeIpv4Set(struct IPv4Set* set) {
     free(set->contents);
     free(set);
@@ -30,6 +32,7 @@ uint32_t hashIPv4(uint32_t* IPv4) {
 
 void addIPv4_(struct IPv4Set* set, uint32_t newIPv4);
 
+// Doubles capacity of the set and rehashes all values
 void rehashSet(struct IPv4Set* set) {
     uint32_t* oldContents = set->contents;
     set->cap *= 2;
@@ -44,6 +47,7 @@ void rehashSet(struct IPv4Set* set) {
     free(oldContents);
 }
 
+// Add new values to set, doubling the size if load factor is too high
 void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
     uint32_t hash = hashIPv4(&newIPv4);
     uint32_t* ptr = set->contents + (hash % set->cap);
@@ -54,7 +58,6 @@ void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
         hash = hashIPv4(&hash);
         ptr = set->contents + (hash % set->cap);
     }
-    // If more than half of set filled, increase set size
     if (set->size+1 > set->cap/2) {
         rehashSet(set);
         addIPv4_(set, newIPv4);
@@ -64,6 +67,7 @@ void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
     set->size += 1;
 }
 
+// locks set before adding new value
 void addIPv4(struct IPv4Set* set, uint32_t newIPv4) {
     pthread_mutex_lock(&set->lock);
     addIPv4_(set, newIPv4);

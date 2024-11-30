@@ -10,7 +10,8 @@
 #include <netinet/tcp.h> // tcphdr, TH_SYN
 #include <netinet/in.h> // IPPROTO_TCP
 
-void printIP(const uint8_t* ip) {
+// Prints an IPv4 address with correct formatting
+void printIPv4(const uint8_t* ip) {
     int i;
     for (i=0; i<4; i++) {
         printf("%d", *(ip+i));
@@ -20,37 +21,35 @@ void printIP(const uint8_t* ip) {
     }
 }
 
+// Prints the specified message for a blacklisted URL
 void violation(struct SharedData* shared, const struct ip* IPHeader, char* host) {
     pthread_mutex_lock(&shared->print_lock);
         printf("========================================\n");
         printf("Blacklisted URL violation detected\n");
         printf("Source IP address: ");
-        printIP((const uint8_t*)&(IPHeader->ip_src));
+        printIPv4((const uint8_t*)&(IPHeader->ip_src));
         printf("\nDestination IP address: ");
-        printIP((const uint8_t*)&(IPHeader->ip_dst));
+        printIPv4((const uint8_t*)&(IPHeader->ip_dst));
         printf(" (");
         printf(host);
         printf(")\n========================================\n");
     pthread_mutex_unlock(&shared->print_lock);
 }
 
+// If the packet's destination is blacklisted then increment the count
 void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
     char* httpString = (char*)malloc(packetLength + sizeof(char));
     httpString[packetLength] = '\0';
     strncpy(httpString, Packet, packetLength);
 
-    const char* headerEnd = strstr(httpString, "\r\n\r\n");
-    if (headerEnd == NULL) {
-        free(httpString);
-        return;
-    }
-    
+    // Find host location in the packet
     char* hostStart = strstr(httpString, "Host: ");
-    if (hostStart == NULL || hostStart > headerEnd) {
+    if (hostStart == NULL) {
         free(httpString);
         return;
     }
 
+    // Get the host
     hostStart += 6;
     const char* hostEnd = strstr(hostStart, "\r\n");
     int hostLen = hostEnd - hostStart;
@@ -58,6 +57,7 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
     host[hostLen] = '\0';
     strncpy(host, hostStart, hostLen);
 
+    // If host is blacklisted print message and increment count
     if (strcmp(host, "www.google.co.uk") == 0) {
         threadData->individual->blackListCount[0] += 1;
         violation(threadData->shared, IPHeader, "google");
@@ -66,10 +66,14 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
         violation(threadData->shared, IPHeader, "bbc");
     }
 
+    // Release memory
     free(host);
     free(httpString);
 }
 
+// Checks that packet is long enough to contain a TCP header
+// If packet is a SYN packet, increment the count
+// If packets destination is port 80, analyse the HTML contents
 void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const uint8_t *Packet, int packetLength) {
     int hs = sizeof(struct tcphdr);
     if (packetLength < hs) {
@@ -86,6 +90,8 @@ void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const 
     }
 }
 
+// Checks that packet is long enough to contain an IPv4 header
+// If packet is a TCP packet, analyse the TCP contents
 void analyseIPv4(struct ThreadData* threadData, const uint8_t *Packet, int packetLength) {
     int hs = sizeof(struct ip);
     if (packetLength < hs) {
@@ -100,6 +106,8 @@ void analyseIPv4(struct ThreadData* threadData, const uint8_t *Packet, int packe
     }
 }
 
+// Checks that packet is long enough to contain an ARP header
+// If packet is an ARP respose, increment the count
 void analyseARP(struct IndividualData* individual, const uint8_t *Packet, int packetLength) {
     int hs = sizeof(struct arphdr);
     if (packetLength < hs) {
@@ -112,6 +120,8 @@ void analyseARP(struct IndividualData* individual, const uint8_t *Packet, int pa
     return;
 }
 
+// Checks that packet is long enough to contain an ethernet header
+// Checks protocol used and passes contents to respective function to analyse them
 void analyse(struct ThreadData* threadData, const struct pcap_pkthdr* PHeader, const uint8_t* Packet) {
     int hs = sizeof(struct ether_header);
     if (PHeader->caplen < hs) {
