@@ -39,8 +39,8 @@ void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
             queue->tail->next = element;
         }
         queue->tail = element;
-    pthread_mutex_unlock(&queue->lock);
     pthread_cond_signal(&queue->cond);
+    pthread_mutex_unlock(&queue->lock);
 }
 
 // Copies the header and packet, since their memory will not be accessible after this function ends
