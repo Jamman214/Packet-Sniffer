@@ -37,7 +37,7 @@ void sniff(char *interface, int verbose) {
     int poolSize = 10;
     struct PoolData* threadPool = initPool(poolSize);
     pcap_loop(pcap_handle, -1, dispatch, (u_char*)threadPool->shared->queue);
-
+    pcap_dispatch(pcap_handle, -1, dispatch, (u_char*)threadPool->shared->queue);
     // Release handle
     pcap_close(pcap_handle);
 
