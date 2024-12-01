@@ -1,11 +1,16 @@
 #include "set_IPv4.h"
+#include "allocationValidation.h"
 
 #include <stdlib.h>
 
 // Initialises a set with the given capacity
 struct IPv4Set* initIPv4Set(int capacity) {
     uint32_t* contents = (uint32_t*)calloc(capacity, 4);
+    validateAlloc(contents, "Unable to allocate memory for set contents");
+
     struct IPv4Set* set = (struct IPv4Set*)malloc(sizeof(struct IPv4Set));
+    validateAlloc(set, "Unable to allocate memory for set");
+
     set->size = 0;
     set->cap = capacity;
     pthread_mutex_init(&set->lock, NULL);
@@ -30,25 +35,27 @@ uint32_t hashIPv4(uint32_t* IPv4) {
     return hash;
 }
 
-void addIPv4_(struct IPv4Set* set, uint32_t newIPv4);
+void addIPv4_(pthread_mutex_t* print_lock, struct IPv4Set* set, uint32_t newIPv4);
 
 // Doubles capacity of the set and rehashes all values
-void rehashSet(struct IPv4Set* set) {
+void rehashSet(pthread_mutex_t* print_lock, struct IPv4Set* set) {
     uint32_t* oldContents = set->contents;
     set->cap *= 2;
     set->contents = (uint32_t*)calloc(set->cap, 4);
+    validateAllocTS(print_lock, set->contents, "Unable to allocate memory to increase set capacity");
+
     set->size = 0;
     int i;
     for (i=0; i<set->cap/2; i++) {
         if (*(oldContents+i) != 0) {
-            addIPv4_(set, *(oldContents+i));
+            addIPv4_(print_lock, set, *(oldContents+i));
         }
     }
     free(oldContents);
 }
 
 // Add new values to set, doubling the size if load factor is too high
-void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
+void addIPv4_(pthread_mutex_t* print_lock, struct IPv4Set* set, uint32_t newIPv4) {
     uint32_t hash = hashIPv4(&newIPv4);
     uint32_t* ptr = set->contents + (hash % set->cap);
     while (*ptr != 0) {
@@ -59,8 +66,8 @@ void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
         ptr = set->contents + (hash % set->cap);
     }
     if (set->size+1 > set->cap/2) {
-        rehashSet(set);
-        addIPv4_(set, newIPv4);
+        rehashSet(print_lock, set);
+        addIPv4_(print_lock, set, newIPv4);
         return;
     }
     *ptr = newIPv4;
@@ -68,8 +75,8 @@ void addIPv4_(struct IPv4Set* set, uint32_t newIPv4) {
 }
 
 // locks set before adding new value
-void addIPv4(struct IPv4Set* set, uint32_t newIPv4) {
+void addIPv4(pthread_mutex_t* print_lock, struct IPv4Set* set, uint32_t newIPv4) {
     pthread_mutex_lock(&set->lock);
-    addIPv4_(set, newIPv4);
+    addIPv4_(print_lock, set, newIPv4);
     pthread_mutex_unlock(&set->lock);
 }

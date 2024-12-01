@@ -1,8 +1,11 @@
 #include "dispatch.h"
 #include "analysis.h"
+#include "allocationValidation.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Struct initialisers
@@ -11,14 +14,17 @@
 // Allocates memory to and creates the work queue
 struct WorkQueue* initWorkQueue () {
     struct WorkQueue* queue = (struct WorkQueue*)calloc(1, sizeof(struct WorkQueue));
+    validateAlloc(queue, "Unable to allocate memory for work queue\n");
     pthread_mutex_init(&queue->lock, NULL);
     pthread_cond_init(&queue->cond, NULL);
     return queue;
 }
 
 // Allocates memory to and creates an element for the work queue
-struct WorkQueueElement* initWorkQueueElement(struct PacketData* packetData) {
+struct WorkQueueElement* initWorkQueueElement(pthread_mutex_t* print_lock, struct PacketData* packetData) {
     struct WorkQueueElement* element = (struct WorkQueueElement*)malloc(sizeof(struct WorkQueueElement));
+    validateAllocTS(print_lock, element, "Unable to allocate memory for work queue element\n");
+
     element->packetData = packetData;
     element->next = NULL;
     return element;
@@ -30,8 +36,8 @@ struct WorkQueueElement* initWorkQueueElement(struct PacketData* packetData) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Adds an element to the work queue (Thread safe)
-void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
-    struct WorkQueueElement* element = initWorkQueueElement(packetData);
+void enqueue(pthread_mutex_t* print_lock, struct WorkQueue* queue, struct PacketData* packetData) {
+    struct WorkQueueElement* element = initWorkQueueElement(print_lock, packetData);
     pthread_mutex_lock(&queue->lock);
         if (queue->head == NULL) {
             queue->head = element;
@@ -46,15 +52,22 @@ void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
 // Copies the header and packet, since their memory will not be accessible after this function ends
 // Enqueues packet data
 void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* packet) {
+    struct SharedData* shared = (struct SharedData*)args;
+
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
+    validateAllocTS(&shared->queue, headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
+
     u_char* packetCopy = (u_char*)malloc(header->caplen);
+    validateAllocTS(&shared->queue, packetCopy, "Unable to allocate memory for packet copy\n");
     memcpy((void*)packetCopy, (void*)packet, header->caplen);
+
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
+    validateAllocTS(&shared->queue, packetData, "Unable to allocate memory for packet data structure\n");
+
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
-    struct SharedData* shared = (struct SharedData*)args;
-    enqueue(shared->queue, packetData);
+    enqueue(&shared->print_lock, shared->queue, packetData);
     if (shared->verbose) {
         pthread_mutex_lock(&shared->print_lock);
         dump(packet, header->len);
@@ -127,8 +140,14 @@ void* collect(void* arg) {
 // Creates threads and passes necessary data to them
 struct PoolData* initPool(int poolSize) {
     struct PoolData* pool = (struct PoolData*)malloc(sizeof(struct PoolData));
+    validateAlloc(pool, "Unable to allocate memory for pool data structure\n");
+
     struct IndividualData* threads = (struct IndividualData*)calloc(poolSize, sizeof(struct IndividualData));
+    validateAlloc(threads, "Unable to allocate memory for threads data structure\n");
+
     struct SharedData* shared = (struct SharedData*)malloc(sizeof(struct SharedData));
+    validateAlloc(shared, "Unable to allocate memory for shared data structure\n");
+
     shared->queue = initWorkQueue();
     shared->set = initIPv4Set(4);
     pthread_mutex_init(&shared->terminate_lock, NULL);
@@ -138,6 +157,8 @@ struct PoolData* initPool(int poolSize) {
     int i;
     for (i=0; i<poolSize; i++) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
+        validateAllocTS(&shared->print_lock, threadData, "Unable to allocate memory for individual thread data structure\n");
+
         threadData->individual = threads+i;
         threadData->shared = shared;
         pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);

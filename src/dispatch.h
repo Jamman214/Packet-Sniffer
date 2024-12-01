@@ -58,6 +58,4 @@ void freePoolData();
 
 struct PoolData* initPool();
 
-void addIPv4(struct IPv4Set* set, uint32_t newAddress);
-
 #endif
