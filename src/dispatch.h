@@ -37,6 +37,7 @@ struct SharedData {
     pthread_mutex_t terminate_lock;
     int terminate;
     pthread_mutex_t print_lock;
+    int verbose;
 };
 
 struct ThreadData {

@@ -53,7 +53,14 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
-    enqueue((struct WorkQueue*)args, packetData);
+    struct SharedData* shared = (struct SharedData*)args;
+    enqueue(shared->queue, packetData);
+    if (shared->verbose) {
+        pthread_mutex_lock(&shared->print_lock);
+        dump(packet, header->len);
+        pthread_mutex_unlock(&shared->print_lock);
+    }
+    
 }
 
 
