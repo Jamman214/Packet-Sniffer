@@ -51,14 +51,10 @@ void sniff(char *interface, int verbose) {
     int SYNCount = 0;
     int ARPCount = 0;
     int blackListCount[2] = {0,0};
-    printf("\n");
     struct IndividualData* data = threadPool->threads;
     int i;
     for (i=0; i<poolSize; i++) {
         pthread_join(data->threadID, NULL);
-        pthread_mutex_lock(&threadPool->shared->print_lock);
-            printf("Cleaned thread %d\n", i);
-        pthread_mutex_unlock(&threadPool->shared->print_lock);
         SYNCount += data->SYNCount;
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
@@ -67,7 +63,7 @@ void sniff(char *interface, int verbose) {
     }
 
     // Output results
-    printf("%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, threadPool->shared->set->size);
+    printf("\n%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, threadPool->shared->set->size);
     printf("%d ARP responses (cache poisoning)\n", ARPCount);
     printf("%d URL Blacklist violations (%d google and %d bbc)\n", blackListCount[0]+blackListCount[1], blackListCount[0], blackListCount[1]);
 

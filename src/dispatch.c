@@ -141,7 +141,6 @@ struct PoolData* initPool(int poolSize) {
         threadData->individual = threads+i;
         threadData->shared = shared;
         pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);
-        printf("Init Thread: %d\n", i);
     }
 
     pool->threads = threads;
