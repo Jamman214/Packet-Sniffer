@@ -1,5 +1,6 @@
 #include "dispatch.h"
 #include "analysis.h"
+#include "sniff.h"
 #include "allocationValidation.h"
 
 #include <stdlib.h>
@@ -55,15 +56,15 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
     struct SharedData* shared = (struct SharedData*)args;
 
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
-    validateAllocTS(&shared->queue, headerCopy, "Unable to allocate memory for header copy\n");
+    validateAllocTS(&shared->print_lock, headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
 
     u_char* packetCopy = (u_char*)malloc(header->caplen);
-    validateAllocTS(&shared->queue, packetCopy, "Unable to allocate memory for packet copy\n");
+    validateAllocTS(&shared->print_lock, packetCopy, "Unable to allocate memory for packet copy\n");
     memcpy((void*)packetCopy, (void*)packet, header->caplen);
 
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
-    validateAllocTS(&shared->queue, packetData, "Unable to allocate memory for packet data structure\n");
+    validateAllocTS(&shared->print_lock, packetData, "Unable to allocate memory for packet data structure\n");
 
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
