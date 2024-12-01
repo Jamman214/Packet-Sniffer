@@ -40,7 +40,7 @@ void violation(struct SharedData* shared, const struct ip* IPHeader, char* host)
 void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
     char* httpString = (char*)malloc(packetLength + sizeof(char));
     httpString[packetLength] = '\0';
-    strncpy(httpString, Packet, packetLength);
+    memcpy(httpString, Packet, packetLength);
 
     // Find host location in the packet
     char* hostStart = strstr(httpString, "Host: ");
@@ -55,7 +55,7 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
     int hostLen = hostEnd - hostStart;
     char* host = (char*)malloc(hostLen + sizeof(char));
     host[hostLen] = '\0';
-    strncpy(host, hostStart, hostLen);
+    memcpy(host, hostStart, hostLen);
 
     // If host is blacklisted print message and increment count
     if (strcmp(host, "www.google.co.uk") == 0) {
