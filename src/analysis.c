@@ -1,5 +1,6 @@
 #include "analysis.h"
 #include "allocationValidation.h"
+#include "LListArray32.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -88,7 +89,7 @@ void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const 
     hs = 4 * Header->th_off;
     if (Header->th_flags == TH_SYN) {
         threadData->individual->SYNCount += 1;
-        addIPv4(&threadData->shared->set, *((uint32_t*)&(IPHeader->ip_src)));
+        addLListArray32(&threadData->individual->IPCount, IPHeader->ip_src.s_addr);
     }
     if (ntohs(Header->th_dport) == 80) {
         analyseHTTP(threadData, IPHeader, (const char*)(Packet + hs), packetLength - hs);

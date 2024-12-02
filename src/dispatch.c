@@ -2,6 +2,7 @@
 #include "analysis.h"
 #include "sniff.h"
 #include "allocationValidation.h"
+#include "LListArray32.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -147,7 +148,6 @@ struct PoolData* initPool(int poolSize) {
     validateAlloc(shared, "Unable to allocate memory for shared data structure\n");
 
     initWorkQueue(&shared->queue);
-    initIPv4Set(&shared->set, 4);
     pthread_mutex_init(&shared->terminate_lock, NULL);
     pthread_mutex_init(&shared->print_lock, NULL); 
 
@@ -155,8 +155,8 @@ struct PoolData* initPool(int poolSize) {
     for (i=0; i<poolSize; i++) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
         validateAlloc(threadData, "Unable to allocate memory for individual thread data structure\n");
-
         threadData->individual = threads+i;
+        initLListArray32(&threadData->individual->IPCount);
         threadData->shared = shared;
         pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);
     }
@@ -169,7 +169,6 @@ struct PoolData* initPool(int poolSize) {
 // Releases memory for thread pool
 void freePoolData(struct PoolData* pool) {
     free(pool->threads);
-    freeIpv4Set(&pool->shared->set);
     free(pool->shared);
     free(pool);
 }

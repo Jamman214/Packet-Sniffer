@@ -3,6 +3,7 @@
 
 #include "setIPv4.h"
 #include "stdint.h"
+#include "LListArray32.h"
 
 #include <pcap.h>
 #include <pthread.h>
@@ -26,6 +27,7 @@ struct WorkQueueElement {
 
 struct IndividualData {
     pthread_t threadID;
+    struct LListArray32 IPCount;
     int SYNCount;
     int ARPCount;
     int blackListCount[2];
@@ -33,7 +35,6 @@ struct IndividualData {
 
 struct SharedData {
     struct WorkQueue queue;
-    struct IPv4Set set;
     pthread_mutex_t terminate_lock;
     int terminate;
     pthread_mutex_t print_lock;

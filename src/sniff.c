@@ -51,6 +51,7 @@ void sniff(char *interface, int verbose) {
     int SYNCount = 0;
     int ARPCount = 0;
     int blackListCount[2] = {0,0};
+    struct IPv4Set* IPCount = initIPv4Set(4);
     struct IndividualData* data = threadPool->threads;
     int i;
     for (i=0; i<poolSize; i++) {
@@ -59,16 +60,18 @@ void sniff(char *interface, int verbose) {
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
         blackListCount[1] += data->blackListCount[1];
+        freeListIntoSet(&data->IPCount, IPCount);
         data += 1;
     }
 
     // Output results
-    printf("\n%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, threadPool->shared->set.size);
+    printf("\n%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, IPCount->size);
     printf("%d ARP responses (cache poisoning)\n", ARPCount);
     printf("%d URL Blacklist violations (%d google and %d bbc)\n", blackListCount[0]+blackListCount[1], blackListCount[0], blackListCount[1]);
 
     // Release all memory
     freePoolData(threadPool);
+    freeIpv4Set(IPCount);
     exit(0);
 }
 
