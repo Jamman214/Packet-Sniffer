@@ -10,7 +10,8 @@
 
 pcap_t* pcap_handle;
 
-void breakCapture(int sig) {
+// Terminates pcap_loop
+void signalHandler(int sig) {
     if (pcap_handle != NULL) {
         pcap_breakloop(pcap_handle);
     }
@@ -24,7 +25,7 @@ void sniff(char *interface, int verbose) {
 
     // Open the specified network interface for packet capture. pcap_open_live() returns the handle to be used for the packet
     // capturing session. check the man page of pcap_open_live()
-    signal(SIGINT, breakCapture);
+    signal(SIGINT, signalHandler);
     pcap_handle = pcap_open_live(interface, 4096, 1, 1000, errbuf);
     if (pcap_handle == NULL) {
         fprintf(stderr, "Unable to open interface %s\n", errbuf);
@@ -34,7 +35,7 @@ void sniff(char *interface, int verbose) {
     }
 
     // Initialise threads, and start packet capture
-    int poolSize = 10;
+    int poolSize = 8;
     struct PoolData* threadPool = initPool(poolSize);
     threadPool->shared->verbose = verbose;
     pcap_loop(pcap_handle, -1, dispatch, (u_char*)threadPool->shared);
