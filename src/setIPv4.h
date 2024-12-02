@@ -8,7 +8,6 @@
 struct IPv4Set {
     int size;
     int cap;
-    pthread_mutex_t lock;
     uint32_t* contents;
 };
 
