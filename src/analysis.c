@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <arpa/inet.h> // ntohs
 #include <net/ethernet.h> // ETHERTYPE_IP, ETHERTYPE_ARP
@@ -24,8 +25,8 @@ void printIPv4(const uint8_t* ip) {
 }
 
 // Prints the specified message for a blacklisted URL
-void violation(struct SharedData* shared, const struct ip* IPHeader, char* host) {
-    pthread_mutex_lock(&shared->print_lock);
+void printViolation(pthread_mutex_t* print_lock, const struct ip* IPHeader, char* host) {
+    pthread_mutex_lock(print_lock);
         printf("========================================\n");
         printf("Blacklisted URL violation detected\n");
         printf("Source IP address: ");
@@ -35,7 +36,7 @@ void violation(struct SharedData* shared, const struct ip* IPHeader, char* host)
         printf(" (");
         printf(host);
         printf(")\n========================================\n");
-    pthread_mutex_unlock(&shared->print_lock);
+    pthread_mutex_unlock(print_lock);
 }
 
 // If the packet's destination is blacklisted then increment the count
@@ -59,10 +60,10 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
     // If host is blacklisted print message and increment count
     if (strcmp(host, "www.google.co.uk") == 0) {
         threadData->individual->blackListCount[0] += 1;
-        violation(threadData->shared, IPHeader, "google");
+        printViolation(&threadData->shared->print_lock, IPHeader, "google");
     } else if (strcmp(host, "www.bbc.co.uk") == 0) { 
         threadData->individual->blackListCount[1] += 1;
-        violation(threadData->shared, IPHeader, "bbc");
+        printViolation(&threadData->shared->print_lock, IPHeader, "bbc");
     }
 
     // Release memory
