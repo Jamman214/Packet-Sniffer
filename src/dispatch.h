@@ -1,7 +1,7 @@
 #ifndef CS241_DISPATCH_H
 #define CS241_DISPATCH_H
 
-#include "set_IPv4.h"
+#include "setIPv4.h"
 #include "stdint.h"
 
 #include <pcap.h>
