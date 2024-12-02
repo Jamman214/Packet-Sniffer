@@ -13,12 +13,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Allocates memory to and creates the work queue
-struct WorkQueue* initWorkQueue () {
-    struct WorkQueue* queue = (struct WorkQueue*)calloc(1, sizeof(struct WorkQueue));
-    validateAlloc(queue, "Unable to allocate memory for work queue\n");
+void initWorkQueue (struct WorkQueue* queue) {
     pthread_mutex_init(&queue->lock, NULL);
     pthread_cond_init(&queue->cond, NULL);
-    return queue;
 }
 
 // Allocates memory to and creates an element for the work queue
@@ -68,7 +65,7 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
 
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
-    enqueue(shared->queue, packetData);
+    enqueue(&shared->queue, packetData);
     if (shared->verbose) {
         pthread_mutex_lock(&shared->print_lock);
         dump(packet, header->len);
@@ -99,28 +96,28 @@ void* collect(void* arg) {
 
     while (1) {
         // Dequeue element from work queue
-        pthread_mutex_lock(&threadData->shared->queue->lock);
+        pthread_mutex_lock(&threadData->shared->queue.lock);
             
             // Wait till queue contains an element, awake when signalled
-            while (threadData->shared->queue->head == NULL) {
+            while (threadData->shared->queue.head == NULL) {
                 // If the program terminates, release locks and signal so another thread can continue
                 pthread_mutex_lock(&threadData->shared->terminate_lock);
                     if (threadData->shared->terminate) {
                         pthread_mutex_unlock(&threadData->shared->terminate_lock);
-                        pthread_cond_signal(&threadData->shared->queue->cond);
-                        pthread_mutex_unlock(&threadData->shared->queue->lock);
+                        pthread_cond_signal(&threadData->shared->queue.cond);
+                        pthread_mutex_unlock(&threadData->shared->queue.lock);
                         free(threadData);
                         return NULL;
                     }
                 pthread_mutex_unlock(&threadData->shared->terminate_lock);
 
-                pthread_cond_wait(&threadData->shared->queue->cond, &threadData->shared->queue->lock);
+                pthread_cond_wait(&threadData->shared->queue.cond, &threadData->shared->queue.lock);
             }
             
-            element = threadData->shared->queue->head;
-            threadData->shared->queue->head = threadData->shared->queue->head->next;
-        pthread_cond_signal(&threadData->shared->queue->cond);
-        pthread_mutex_unlock(&threadData->shared->queue->lock);
+            element = threadData->shared->queue.head;
+            threadData->shared->queue.head = threadData->shared->queue.head->next;
+        pthread_cond_signal(&threadData->shared->queue.cond);
+        pthread_mutex_unlock(&threadData->shared->queue.lock);
 
         // Analyse dequeued packet
         packetData = element->packetData;
@@ -146,13 +143,12 @@ struct PoolData* initPool(int poolSize) {
     struct IndividualData* threads = (struct IndividualData*)calloc(poolSize, sizeof(struct IndividualData));
     validateAlloc(threads, "Unable to allocate memory for threads data structure\n");
 
-    struct SharedData* shared = (struct SharedData*)malloc(sizeof(struct SharedData));
+    struct SharedData* shared = (struct SharedData*)calloc(1, sizeof(struct SharedData));
     validateAlloc(shared, "Unable to allocate memory for shared data structure\n");
 
-    shared->queue = initWorkQueue();
-    shared->set = initIPv4Set(4);
+    initWorkQueue(&shared->queue);
+    initIPv4Set(&shared->set, 4);
     pthread_mutex_init(&shared->terminate_lock, NULL);
-    shared->terminate = 0;
     pthread_mutex_init(&shared->print_lock, NULL); 
 
     int i;
@@ -173,8 +169,7 @@ struct PoolData* initPool(int poolSize) {
 // Releases memory for thread pool
 void freePoolData(struct PoolData* pool) {
     free(pool->threads);
-    free(pool->shared->queue);
-    freeIpv4Set(pool->shared->set);
+    freeIpv4Set(&pool->shared->set);
     free(pool->shared);
     free(pool);
 }

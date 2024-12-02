@@ -44,7 +44,7 @@ void sniff(char *interface, int verbose) {
     // Tell threads to terminate
     pthread_mutex_lock(&threadPool->shared->terminate_lock);
     threadPool->shared->terminate = 1;
-    pthread_cond_signal(&threadPool->shared->queue->cond);
+    pthread_cond_signal(&threadPool->shared->queue.cond);
     pthread_mutex_unlock(&threadPool->shared->terminate_lock);
 
     // Collect data from terminated threads
@@ -63,7 +63,7 @@ void sniff(char *interface, int verbose) {
     }
 
     // Output results
-    printf("\n%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, threadPool->shared->set->size);
+    printf("\n%d SYN packets detected from %d different IPs (syn attack)\n", SYNCount, threadPool->shared->set.size);
     printf("%d ARP responses (cache poisoning)\n", ARPCount);
     printf("%d URL Blacklist violations (%d google and %d bbc)\n", blackListCount[0]+blackListCount[1], blackListCount[0], blackListCount[1]);
 

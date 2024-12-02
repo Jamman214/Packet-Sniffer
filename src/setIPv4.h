@@ -12,7 +12,7 @@ struct IPv4Set {
     uint32_t* contents;
 };
 
-struct IPv4Set* initIPv4Set(int capacity);
+void initIPv4Set(struct IPv4Set* set, int capacity);
 
 void freeIpv4Set(struct IPv4Set* set);
 

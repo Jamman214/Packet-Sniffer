@@ -4,24 +4,18 @@
 #include <stdlib.h>
 
 // Initialises a set with the given capacity
-struct IPv4Set* initIPv4Set(int capacity) {
+void initIPv4Set(struct IPv4Set* set, int capacity) {
     uint32_t* contents = (uint32_t*)calloc(capacity, 4);
     validateAlloc(contents, "Unable to allocate memory for set contents");
 
-    struct IPv4Set* set = (struct IPv4Set*)malloc(sizeof(struct IPv4Set));
-    validateAlloc(set, "Unable to allocate memory for set");
-
-    set->size = 0;
     set->cap = capacity;
     pthread_mutex_init(&set->lock, NULL);
     set->contents = contents;
-    return set;
 }
 
 // Releases memory used by sets
 void freeIpv4Set(struct IPv4Set* set) {
     free(set->contents);
-    free(set);
 }
 
 // FNV-1a hash

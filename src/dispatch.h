@@ -32,8 +32,8 @@ struct IndividualData {
 };
 
 struct SharedData {
-    struct WorkQueue* queue;
-    struct IPv4Set* set;
+    struct WorkQueue queue;
+    struct IPv4Set set;
     pthread_mutex_t terminate_lock;
     int terminate;
     pthread_mutex_t print_lock;
