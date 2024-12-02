@@ -30,9 +30,9 @@ void printViolation(pthread_mutex_t* print_lock, const struct ip* IPHeader, char
         printf("========================================\n");
         printf("Blacklisted URL violation detected\n");
         printf("Source IP address: ");
-        printIPv4((const uint8_t*)&(IPHeader->ip_src));
+        printf(inet_ntoa(IPHeader->ip_src));
         printf("\nDestination IP address: ");
-        printIPv4((const uint8_t*)&(IPHeader->ip_dst));
+        printf(inet_ntoa(IPHeader->ip_dst));
         printf(" (");
         printf(host);
         printf(")\n========================================\n");
@@ -82,6 +82,7 @@ void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const 
     hs = 4 * Header->th_off;
     if (Header->th_flags == TH_SYN) {
         threadData->individual->SYNCount += 1;
+        // No need to correct 
         addLListArray32(&threadData->individual->IPCount, IPHeader->ip_src.s_addr);
     }
     if (ntohs(Header->th_dport) == 80) {
