@@ -50,9 +50,10 @@ void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
 
 // Copies the header and packet, since their memory will not be accessible after this function ends
 // Enqueues packet data
+// Dumps packet if verbose
 void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* packet) {
     struct SharedData* shared = (struct SharedData*)args;
-    
+
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
     validateAlloc(headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
@@ -64,10 +65,11 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
 
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
     validateAlloc(packetData, "Unable to allocate memory for packet data structure\n");
-
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
+
     enqueue(&shared->queue, packetData);
+
     if (shared->verbose) {
         pthread_mutex_lock(&shared->print_lock);
         dump(packet, header->len);
