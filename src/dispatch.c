@@ -22,9 +22,9 @@ struct WorkQueue* initWorkQueue () {
 }
 
 // Allocates memory to and creates an element for the work queue
-struct WorkQueueElement* initWorkQueueElement(pthread_mutex_t* print_lock, struct PacketData* packetData) {
+struct WorkQueueElement* initWorkQueueElement(struct PacketData* packetData) {
     struct WorkQueueElement* element = (struct WorkQueueElement*)malloc(sizeof(struct WorkQueueElement));
-    validateAllocTS(print_lock, element, "Unable to allocate memory for work queue element\n");
+    validateAlloc(element, "Unable to allocate memory for work queue element\n");
 
     element->packetData = packetData;
     element->next = NULL;
@@ -37,8 +37,8 @@ struct WorkQueueElement* initWorkQueueElement(pthread_mutex_t* print_lock, struc
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Adds an element to the work queue (Thread safe)
-void enqueue(pthread_mutex_t* print_lock, struct WorkQueue* queue, struct PacketData* packetData) {
-    struct WorkQueueElement* element = initWorkQueueElement(print_lock, packetData);
+void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
+    struct WorkQueueElement* element = initWorkQueueElement(packetData);
     pthread_mutex_lock(&queue->lock);
         if (queue->head == NULL) {
             queue->head = element;
@@ -56,19 +56,19 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
     struct SharedData* shared = (struct SharedData*)args;
 
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
-    validateAllocTS(&shared->print_lock, headerCopy, "Unable to allocate memory for header copy\n");
+    validateAlloc(headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
 
     u_char* packetCopy = (u_char*)malloc(header->caplen);
-    validateAllocTS(&shared->print_lock, packetCopy, "Unable to allocate memory for packet copy\n");
+    validateAlloc(packetCopy, "Unable to allocate memory for packet copy\n");
     memcpy((void*)packetCopy, (void*)packet, header->caplen);
 
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
-    validateAllocTS(&shared->print_lock, packetData, "Unable to allocate memory for packet data structure\n");
+    validateAlloc(packetData, "Unable to allocate memory for packet data structure\n");
 
     packetData->header = headerCopy;
     packetData->packet = packetCopy;
-    enqueue(&shared->print_lock, shared->queue, packetData);
+    enqueue(shared->queue, packetData);
     if (shared->verbose) {
         pthread_mutex_lock(&shared->print_lock);
         dump(packet, header->len);
@@ -158,7 +158,7 @@ struct PoolData* initPool(int poolSize) {
     int i;
     for (i=0; i<poolSize; i++) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
-        validateAllocTS(&shared->print_lock, threadData, "Unable to allocate memory for individual thread data structure\n");
+        validateAlloc(threadData, "Unable to allocate memory for individual thread data structure\n");
 
         threadData->individual = threads+i;
         threadData->shared = shared;

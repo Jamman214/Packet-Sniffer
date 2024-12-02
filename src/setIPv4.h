@@ -16,6 +16,6 @@ struct IPv4Set* initIPv4Set(int capacity);
 
 void freeIpv4Set(struct IPv4Set* set);
 
-void addIPv4(pthread_mutex_t* print_lock, struct IPv4Set* set, uint32_t newIPv4);
+void addIPv4(struct IPv4Set* set, uint32_t newIPv4);
 
 #endif
