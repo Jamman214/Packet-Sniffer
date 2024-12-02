@@ -13,17 +13,6 @@
 #include <netinet/tcp.h> // tcphdr, TH_SYN
 #include <netinet/in.h> // IPPROTO_TCP
 
-// Prints an IPv4 address with correct formatting
-void printIPv4(const uint8_t* ip) {
-    int i;
-    for (i=0; i<4; i++) {
-        printf("%d", *(ip+i));
-        if (i<3) {
-            printf(":");
-        }
-    }
-}
-
 // Prints the specified message for a blacklisted URL
 void printViolation(pthread_mutex_t* print_lock, const struct ip* IPHeader, char* host) {
     pthread_mutex_lock(print_lock);

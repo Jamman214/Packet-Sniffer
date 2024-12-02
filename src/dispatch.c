@@ -34,7 +34,7 @@ struct WorkQueueElement* initWorkQueueElement(struct PacketData* packetData) {
 // Work dispatcher
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Adds an element to the work queue (Thread safe)
+// Adds an element to the work queue, then signal to allow thread to take packet
 void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
     struct WorkQueueElement* element = initWorkQueueElement(packetData);
     pthread_mutex_lock(&queue->lock);
@@ -52,7 +52,7 @@ void enqueue(struct WorkQueue* queue, struct PacketData* packetData) {
 // Enqueues packet data
 void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* packet) {
     struct SharedData* shared = (struct SharedData*)args;
-
+    
     struct pcap_pkthdr* headerCopy = (struct pcap_pkthdr*)malloc(sizeof(struct pcap_pkthdr));
     validateAlloc(headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
@@ -73,7 +73,6 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
         dump(packet, header->len);
         pthread_mutex_unlock(&shared->print_lock);
     }
-    
 }
 
 
@@ -90,36 +89,38 @@ void freePacketData(struct PacketData* packetData) {
 }
 
 // Repeatedly removes an element from the queue if one exists, or waits until signalled if queue is empty
-// Terminates when terminate flag is set
+// Terminates when terminate flag is set and the queue is empty
 void* collect(void* arg) {
     struct ThreadData* threadData = (struct ThreadData*)arg;
+    struct SharedData shared = threadData->shared;
     struct PacketData* packetData = NULL;
     struct WorkQueueElement* element = NULL;
 
     while (1) {
         // Dequeue element from work queue
-        pthread_mutex_lock(&threadData->shared->queue.lock);
+        pthread_mutex_lock(&shared->queue.lock);
             
             // Wait till queue contains an element, awake when signalled
-            while (threadData->shared->queue.head == NULL) {
+            while (shared->queue.head == NULL) {
                 // If the program terminates, release locks and signal so another thread can continue
-                pthread_mutex_lock(&threadData->shared->terminate_lock);
-                    if (threadData->shared->terminate) {
-                        pthread_mutex_unlock(&threadData->shared->terminate_lock);
-                        pthread_cond_signal(&threadData->shared->queue.cond);
-                        pthread_mutex_unlock(&threadData->shared->queue.lock);
+                pthread_mutex_lock(&shared->terminate_lock);
+                    if (shared->terminate) {
+                        pthread_mutex_unlock(&shared->terminate_lock);
+                        pthread_cond_signal(&shared->queue.cond);
+                        pthread_mutex_unlock(&shared->queue.lock);
                         free(threadData);
                         return NULL;
                     }
-                pthread_mutex_unlock(&threadData->shared->terminate_lock);
+                pthread_mutex_unlock(&shared->terminate_lock);
 
-                pthread_cond_wait(&threadData->shared->queue.cond, &threadData->shared->queue.lock);
+                pthread_cond_wait(&shared->queue.cond, &shared->queue.lock);
             }
-            
-            element = threadData->shared->queue.head;
-            threadData->shared->queue.head = threadData->shared->queue.head->next;
-        pthread_cond_signal(&threadData->shared->queue.cond);
-        pthread_mutex_unlock(&threadData->shared->queue.lock);
+            // Dequeue
+            element = shared->queue.head;
+            shared->queue.head = shared->queue.head->next;
+        // Release lock and signal so another thread can continue
+        pthread_cond_signal(&shared->queue.cond);
+        pthread_mutex_unlock(&shared->queue.lock);
 
         // Analyse dequeued packet
         packetData = element->packetData;
