@@ -90,7 +90,8 @@ void freePacketData(struct PacketData* packetData) {
     free(packetData);
 }
 
-// Repeatedly removes an element from the queue if one exists, or waits until signalled if queue is empty
+// Repeatedly removes an element from the queue if one exists, 
+// or waits until signalled if queue is empty
 // Terminates when terminate flag is set and the queue is empty
 void* collect(void* arg) {
     struct ThreadData* threadData = (struct ThreadData*)arg;
@@ -104,7 +105,8 @@ void* collect(void* arg) {
             
             // Wait till queue contains an element, awake when signalled
             while (shared->queue.head == NULL) {
-                // If the program terminates, release locks and signal so another thread can continue
+                // If the program terminates, 
+                // release locks and signal so another thread can continue
                 pthread_mutex_lock(&shared->terminate_lock);
                     if (shared->terminate) {
                         pthread_mutex_unlock(&shared->terminate_lock);
@@ -134,7 +136,7 @@ void* collect(void* arg) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////S/////////////////////////////////////////////
 // Thread Pool
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
