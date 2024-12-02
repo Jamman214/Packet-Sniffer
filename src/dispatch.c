@@ -57,9 +57,10 @@ void dispatch(u_char* args, const struct pcap_pkthdr* header, const u_char* pack
     validateAlloc(headerCopy, "Unable to allocate memory for header copy\n");
     memcpy((void*)headerCopy, (void*)header, sizeof(struct pcap_pkthdr));
 
-    u_char* packetCopy = (u_char*)malloc(header->caplen);
+    u_char* packetCopy = (u_char*)malloc(header->caplen + 1);
     validateAlloc(packetCopy, "Unable to allocate memory for packet copy\n");
     memcpy((void*)packetCopy, (void*)packet, header->caplen);
+    packetCopy[header->caplen] = '\0';
 
     struct PacketData* packetData = (struct PacketData*)malloc(sizeof(struct PacketData));
     validateAlloc(packetData, "Unable to allocate memory for packet data structure\n");

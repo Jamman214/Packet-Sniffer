@@ -40,16 +40,9 @@ void violation(struct SharedData* shared, const struct ip* IPHeader, char* host)
 
 // If the packet's destination is blacklisted then increment the count
 void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const char* Packet, int packetLength) {
-    char* httpString = (char*)malloc(packetLength + sizeof(char));
-    validateAlloc(httpString, "Unable to allocate memory for http packet\n");
-
-    httpString[packetLength] = '\0';
-    memcpy(httpString, Packet, packetLength);
-
     // Find host location in the packet
-    char* hostStart = strstr(httpString, "Host: ");
+    char* hostStart = strstr(Packet, "Host: ");
     if (hostStart == NULL) {
-        free(httpString);
         return;
     }
 
@@ -74,7 +67,6 @@ void analyseHTTP(struct ThreadData* threadData, const struct ip* IPHeader, const
 
     // Release memory
     free(host);
-    free(httpString);
 }
 
 // Checks that packet is long enough to contain a TCP header
