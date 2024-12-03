@@ -61,8 +61,9 @@ void addIPv4(struct IPv4Set* set, uint32_t newIPv4) {
         if (*ptr == newIPv4) {
             return;
         }
-        hash = hashIPv4(&hash);
-        ptr = set->contents + (hash % set->cap);
+        ptr = (hash + (i * i)) % set->cap;
+        // hash = hashIPv4(&hash);
+        // ptr = set->contents + (hash % set->cap);
     }
     if (set->size+1 > set->cap/2) {
         rehashSet(set);

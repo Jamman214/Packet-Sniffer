@@ -27,7 +27,7 @@ struct WorkQueueElement {
 
 struct IndividualData {
     pthread_t threadID;
-    struct LListArray32 IPCount;
+    struct LListArray32 IPs;
     int SYNCount;
     int ARPCount;
     int blackListCount[2];

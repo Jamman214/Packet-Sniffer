@@ -162,7 +162,7 @@ struct PoolData* initPool(int poolSize) {
         struct ThreadData* threadData = (struct ThreadData*)malloc(sizeof(struct ThreadData));
         validateAlloc(threadData, "Unable to allocate memory for individual thread data structure\n");
         threadData->individual = threads+i;
-        initLListArray32(&threadData->individual->IPCount);
+        initLListArray32(&threadData->individual->IPs);
         threadData->shared = shared;
         pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);
     }

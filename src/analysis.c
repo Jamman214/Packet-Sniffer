@@ -72,7 +72,7 @@ void analyseTCP(struct ThreadData* threadData, const struct ip* IPHeader, const 
     if (Header->th_flags == TH_SYN) {
         threadData->individual->SYNCount += 1;
         // No need to correct 
-        addLListArray32(&threadData->individual->IPCount, IPHeader->ip_src.s_addr);
+        addLListArray32(&threadData->individual->IPs, IPHeader->ip_src.s_addr);
     }
     if (ntohs(Header->th_dport) == 80) {
         analyseHTTP(threadData, IPHeader, (const char*)(Packet + hs), packetLength - hs);
