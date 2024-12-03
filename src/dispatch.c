@@ -165,8 +165,8 @@ struct PoolData* initPool(int poolSize) {
         initLListArray32(&threadData->individual->IPs);
         threadData->shared = shared;
         if (pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData) != 0) {
-            fprintf(stderr, "Failed to create thread");
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Failed to create thread\n");
+            //exit(EXIT_FAILURE);
         }
     }
 

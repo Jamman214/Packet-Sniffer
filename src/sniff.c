@@ -58,7 +58,7 @@ void sniff(char *interface, int verbose) {
     int i;
     for (i=0; i<poolSize; i++) {
         if (pthread_join(data->threadID, (void**)&threadData) != 0) {
-            fprintf(stderr, "Failed to join thread");
+            fprintf(stderr, "Failed to join thread\n");
             exit(EXIT_FAILURE);
         }
         free(threadData);
