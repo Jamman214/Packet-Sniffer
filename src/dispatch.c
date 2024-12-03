@@ -4,6 +4,7 @@
 #include "allocationValidation.h"
 #include "LListArray32.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -95,7 +96,7 @@ void freePacketData(struct PacketData* packetData) {
 // Terminates when terminate flag is set and the queue is empty
 void* collect(void* arg) {
     struct ThreadData* threadData = (struct ThreadData*)arg;
-    struct SharedData shared = threadData->shared;
+    struct SharedData* shared = threadData->shared;
     struct PacketData* packetData = NULL;
     struct WorkQueueElement* element = NULL;
 
@@ -112,8 +113,7 @@ void* collect(void* arg) {
                         pthread_mutex_unlock(&shared->terminate_lock);
                         pthread_cond_signal(&shared->queue.cond);
                         pthread_mutex_unlock(&shared->queue.lock);
-                        free(threadData);
-                        return NULL;
+                        pthread_exit((void*)threadData);
                     }
                 pthread_mutex_unlock(&shared->terminate_lock);
 
@@ -164,7 +164,10 @@ struct PoolData* initPool(int poolSize) {
         threadData->individual = threads+i;
         initLListArray32(&threadData->individual->IPs);
         threadData->shared = shared;
-        pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData);
+        if (pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData) != 0) {
+            fprintf(stderr, "Failed to create thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     pool->threads = threads;
