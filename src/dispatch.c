@@ -113,7 +113,8 @@ void* collect(void* arg) {
                         pthread_mutex_unlock(&shared->terminate_lock);
                         pthread_cond_signal(&shared->queue.cond);
                         pthread_mutex_unlock(&shared->queue.lock);
-                        pthread_exit((void*)threadData);
+                        free(arg);
+                        return NULL;
                     }
                 pthread_mutex_unlock(&shared->terminate_lock);
 
@@ -166,7 +167,7 @@ struct PoolData* initPool(int poolSize) {
         threadData->shared = shared;
         if (pthread_create((pthread_t *)threadData->individual, NULL, collect, (void*)threadData) != 0) {
             fprintf(stderr, "Failed to create thread\n");
-            //exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
         }
     }
 

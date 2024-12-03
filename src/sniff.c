@@ -54,14 +54,12 @@ void sniff(char *interface, int verbose) {
     int blackListCount[2] = {0,0};
     struct IPv4Set* IPs = initIPv4Set(4);
     struct IndividualData* data = threadPool->threads;
-    struct ThreadData* threadData;
     int i;
     for (i=0; i<poolSize; i++) {
-        if (pthread_join(data->threadID, (void**)&threadData) != 0) {
+        if (pthread_join(data->threadID, NULL) != 0) {
             fprintf(stderr, "Failed to join thread\n");
             exit(EXIT_FAILURE);
         }
-        free(threadData);
         SYNCount += data->SYNCount;
         ARPCount += data->ARPCount;
         blackListCount[0] += data->blackListCount[0];
