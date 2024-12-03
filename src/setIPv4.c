@@ -57,11 +57,14 @@ void rehashSet(struct IPv4Set* set) {
 void addIPv4(struct IPv4Set* set, uint32_t newIPv4) {
     uint32_t hash = hashIPv4(&newIPv4);
     uint32_t* ptr = set->contents + (hash % set->cap);
+    int i = 1;
     while (*ptr != 0) {
         if (*ptr == newIPv4) {
             return;
         }
-        ptr = (hash + (i * i)) % set->cap;
+        
+        ptr = set->contents + ((hash + (i*i)) % set->cap);
+        i += 1;
         // hash = hashIPv4(&hash);
         // ptr = set->contents + (hash % set->cap);
     }
